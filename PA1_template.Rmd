@@ -1,0 +1,142 @@
+
+# Activity Monitoring Study
+#### Author: "Aditya"
+#### Date: "June 4, 2017"
+
+
+#### Summary: *This Report captures the Analysis done to analyse and interpret the data collected from personal activity monitoring device of an Individual for 2 months.*
+
+## The below R code chunk will load the R Packages
+
+```{r loading packages,echo=TRUE, message=FALSE, warning=FALSE}
+        library("markdown")
+        library("rmarkdown")
+        library("knitr")
+        library("dplyr")
+        library("ggplot2")
+```
+
+ 
+## Setting R Markdown Global options
+```{r setoptions}
+        opts_chunk$set(echo=TRUE, results = "asis", message=FALSE, error=FALSE, warning=FALSE, cache = TRUE)
+```
+
+  
+## Downloading the Source Data and Reading into R
+
+```{r Importing Data}
+
+        file_url <-"https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+        setwd <- "G:/Data Science Project/Reproducible Research/Week 2/Assignment"
+        download.file(url=file_url,destfile = "Activity.zip",method = "libcurl")
+        unzip("Activity.zip")
+        activity<- read.csv(file ="activity.csv",header = TRUE, stringsAsFactors = FALSE)
+
+```
+
+## The below R code helps in understanding the structure & summary Statistics of activity table. 
+
+```{r}
+# Dimensions of the Activity Table
+        dim(activity)
+
+# Structure of the Activity Table
+        str(activity)
+        
+# Summary statistics of the Activity Table
+        summary(activity)
+```
+
+## Identifying Missing Values in the Entire Table                
+```{r}
+        sum(is.na(activity))
+        mean(is.na(activity))
+```
+
+## Identifying Missing Values Column/ Variable wise                
+```{r}        
+        colSums(is.na(activity))
+        colMeans(is.na(activity))
+```
+
+## Transforming format of Date variable 
+```{r}        
+        #activity$date=as.POSIXlt(activity$date)
+    
+        activity$date=as.Date(activity$date)
+```
+
+## Histogram of the total number of steps taken each day
+
+```{r Total Steps per Day1}
+        activity_no_na <- activity[!rowSums(is.na(activity)),]
+    
+        total_steps <- aggregate(steps~date,data=activity_no_na, FUN = sum,na.rm = FALSE)
+
+ggplot(total_steps, aes(steps))+ geom_histogram(binwidth = 5000) + labs(x="Steps per Day",y="Frequency", title="Histogram of Total no of Steps per Day") + theme(plot.title = element_text(hjust=0.5))
+ 
+        
+```
+
+## Mean and median number of steps taken each day
+
+```{r Mean & Median of steps per day}        
+        round(mean(total_steps$steps))
+        median(total_steps$steps)
+```
+
+## Average No of Steps by Interval
+```{r}
+    avg_steps <- aggregate(steps~interval, activity_no_na, FUN=mean)
+
+ggplot(avg_steps, aes(x=interval,y=steps))+geom_line(col="red")+labs(x="5- minute Inteval", y="Average Step Count", title="Average No of Steps by Interval") + theme(plot.title = element_text(hjust = 0.5))
+        
+```
+
+## The 5-minute interval on average contains the maximum number of steps
+```{r Max no of steps interval}      
+    avg_steps<- arrange(avg_steps, desc(steps))
+    paste("The 5- minute interval -- ", avg_steps[1,"interval"], ", has maximum no of steps i.e. " ,round(avg_steps[1,"steps"])   )
+
+```
+
+## Imputing missing data -- Using the Average steps of each 5- minute interval
+
+```{r Imputing Missing Data}      
+
+    activity_new <- merge.data.frame(activity, avg_steps, by.x = "interval", by.y="interval")
+    for (i in 1: nrow(activity_new))
+    {   
+        activity_new$steps[i]<- if (is.na(activity_new$steps.x[i])) {activity_new$steps.y[i]}                                   else {activity_new$steps.x[i]}
+    }
+    activity_new1 <- select(activity_new,c(interval,date,steps))
+
+```
+
+
+## Histogram of the total number of steps taken each day after missing values are imputed
+```{r Total Steps per Day Imputed values}
+
+        total_steps1 <- aggregate(steps~date,data=activity_new1, FUN = sum)
+
+ggplot(total_steps1, aes(steps))+ geom_histogram(binwidth = 5000) + labs(x="Steps per Day",y="Frequency", title="Histogram of Total no of Steps per Day") + theme(plot.title = element_text(hjust=0.5))
+
+```
+
+## Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+```{r panel plot}
+    activity_new1$date<- as.POSIXlt(activity_new1$date)
+    activity_new2<- activity_new1
+    x <- activity_new2$date$wday
+    for(i in 1:length(x))
+        {activity_new2$day_flag[i] <- if(x[i] %in% c(6,7)) {"weekend"} else {"weekday"}}
+
+    avg_steps2 <- aggregate(steps~interval+day_flag, activity_new2, FUN = sum)
+    
+    ggplot(avg_steps2, aes(x=interval, y=steps)) + geom_line(col="red") + facet_wrap(~day_flag) +labs(x="5- minute Inteval", y="Average Step Count", title="Average No of Steps by Interval across Weekday and Weekend") + theme(plot.title = element_text(hjust = 0.5))
+    
+```
+
+
